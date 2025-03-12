@@ -132,7 +132,8 @@ def reset_model_weights(model):
 
 
 def train(model, train_loader, val_loader, num_epochs = 5):
-    reset_model_weights(model)  # Reset weights before training
+    #reset_model_weights(model)  # Reset weights before training
+
     criterion = nn.SmoothL1Loss()
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     best_val_loss = float("inf")
@@ -200,6 +201,7 @@ def train(model, train_loader, val_loader, num_epochs = 5):
             best_val_loss = avg_val_loss
             torch.save(model.state_dict(), "best_model.pth")  # Save model weights
             print(f" Model saved at epoch {epoch+1} with validation loss: {avg_val_loss:.4f}")
+
 
 
         # Print results for this epoch
