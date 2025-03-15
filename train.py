@@ -31,12 +31,16 @@ class MultiStreamFusionModel(nn.Module):
             nn.Linear(hidden_size, hidden_size)
         )
         
-        # Sensor branch: Transformer-based branch
-        # First, project sensor features to hidden_size
-        self.sensor_linear = nn.Linear(sensor_input_dim, hidden_size)
-        # Transformer encoder expects input shape [seq_len, batch_size, d_model]
-        encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=nhead)
+        # Sensor branch: Time-Series Transformer
+        self.sensor_linear = nn.Linear(sensor_input_dim, hidden_size)  # Project sensor data to hidden dim
+
+        # Positional Encoding (Learnable for Time-Series)
+        self.positional_encoding = nn.Parameter(torch.randn(1, 25000, hidden_size))  # Max sequence length assumed 25000
+
+        # Transformer Encoder Layers
+        encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=nhead, dropout=0.2)
         self.sensor_transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_transformer_layers)
+
         
         # Fusion layers: combine outputs from both branches
         self.fusion = nn.Sequential(
@@ -54,16 +58,18 @@ class MultiStreamFusionModel(nn.Module):
         metadata_avg = metadata.mean(dim=1)  # [batch_size, metadata_input_dim]
         metadata_features = self.metadata_branch(metadata_avg)  # [batch_size, hidden_size]
         
-        # Process sensor data with the transformer
-        # Project sensor data first
-        sensor_proj = self.sensor_linear(sensor_data)  # [batch_size, seq_len, hidden_size]
-        # Transformer expects [seq_len, batch_size, hidden_size]
+
+        # Sensor Transformer Processing
+        sensor_proj = self.sensor_linear(sensor_data)  
+        sensor_proj = sensor_proj + self.positional_encoding[:, :sensor_proj.shape[1], :]  # Add positional encoding
         sensor_proj = sensor_proj.transpose(0, 1)  # [seq_len, batch_size, hidden_size]
-        sensor_encoded = self.sensor_transformer(sensor_proj)  # [seq_len, batch_size, hidden_size]
-        # Transpose back
-        sensor_encoded = sensor_encoded.transpose(0, 1)  # [batch_size, seq_len, hidden_size]
-        # Aggregate the sequence dimension (e.g., using mean pooling)
-        sensor_features = sensor_encoded.mean(dim=1)  # [batch_size, hidden_size]
+        
+        # Transformer Encoding with Causal Mask (looks only at past data)
+        mask = torch.triu(torch.ones(sensor_proj.shape[0], sensor_proj.shape[0]), diagonal=1).bool().to(sensor_proj.device)
+        sensor_encoded = self.sensor_transformer(sensor_proj, src_mask=mask)
+
+        # Aggregate information (mean pooling across sequence)
+        sensor_encoded = sensor_encoded.mean(dim=0)
         
         # Fuse features from both branches
         fused = torch.cat([metadata_features, sensor_features], dim=1)  # [batch_size, hidden_size * 2]
@@ -199,7 +205,7 @@ def train(model, train_loader, val_loader, num_epochs = 5):
         #  Save the model if validation loss improves
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            torch.save(model.state_dict(), "best_model.pth")  # Save model weights
+            torch.save(model.state_dict(), "best_model_TS.pth")  # Save model weights
             print(f" Model saved at epoch {epoch+1} with validation loss: {avg_val_loss:.4f}")
 
 
@@ -219,7 +225,7 @@ if __name__ == "__main__":
     metadata_features = sample_metadata.shape[1]
     sensor_features = sample_sensor.shape[1]
     model = MultiStreamFusionModel(metadata_features, sensor_features, hidden_size=16, output_size=1).to(device)
-    model.load_state_dict(torch.load("best_model.pth", map_location=device))
+    #model.load_state_dict(torch.load("best_model.pth", map_location=device))
 
 
     train(model, train_loader, val_loader, num_epochs = 500)
