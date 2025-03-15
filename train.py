@@ -35,7 +35,7 @@ class MultiStreamFusionModel(nn.Module):
         self.sensor_linear = nn.Linear(sensor_input_dim, hidden_size)  # Project sensor data to hidden dim
 
         # Positional Encoding (Learnable for Time-Series)
-        self.positional_encoding = nn.Parameter(torch.randn(1, 25000, hidden_size))  # Max sequence length assumed 25000
+        self.positional_encoding = nn.Parameter(torch.randn(1, 2500, hidden_size))  # Max sequence length assumed 25000
 
         # Transformer Encoder Layers
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=nhead, dropout=0.2)
