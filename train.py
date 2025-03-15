@@ -64,15 +64,18 @@ class MultiStreamFusionModel(nn.Module):
         sensor_proj = sensor_proj + self.positional_encoding[:, :sensor_proj.shape[1], :]  # Add positional encoding
         sensor_proj = sensor_proj.transpose(0, 1)  # [seq_len, batch_size, hidden_size]
         
-        # Transformer Encoding with Causal Mask (looks only at past data)
-        mask = torch.triu(torch.ones(sensor_proj.shape[0], sensor_proj.shape[0]), diagonal=1).bool().to(sensor_proj.device)
-        sensor_encoded = self.sensor_transformer(sensor_proj, src_mask=mask)
+        seq_len = sensor_proj.shape[0]  # Get current sequence length
+        mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).to(sensor_proj.device)
+        mask = mask.masked_fill(mask == 1, float('-inf'))  # Convert to -inf for Transformer masking
+
+        
+        sensor_encoded = self.sensor_transformer(sensor_proj, mask)
 
         # Aggregate information (mean pooling across sequence)
         sensor_encoded = sensor_encoded.mean(dim=0)
         
         # Fuse features from both branches
-        fused = torch.cat([metadata_features, sensor_features], dim=1)  # [batch_size, hidden_size * 2]
+        fused = torch.cat([metadata_features, sensor_encoded], dim=1)  # [batch_size, hidden_size * 2]
         out = self.fusion(fused)  # [batch_size, output_size]
         return out
 
