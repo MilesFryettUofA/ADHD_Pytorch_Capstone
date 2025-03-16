@@ -47,7 +47,7 @@ class MultiStreamFusionModel(nn.Module):
             nn.Linear(hidden_size * 2, hidden_size),
             nn.LeakyReLU(negative_slope=0.01), 
             nn.Linear(hidden_size, output_size),
-            nn.Sigmoid()  # Ensure output is between 0 and 1
+            nn.Identity()  # Ensure output is between 0 and 1
 
         )
     
