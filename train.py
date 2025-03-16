@@ -65,11 +65,11 @@ class MultiStreamFusionModel(nn.Module):
         sensor_proj = sensor_proj.transpose(0, 1)  # [seq_len, batch_size, hidden_size]
         
         seq_len = sensor_proj.shape[0]  # Get current sequence length
-        mask1 = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).to(sensor_proj.device)
-        mask1 = mask1.masked_fill(mask1 == 1, float('-inf'))  # Convert to -inf for Transformer masking
+        mask1 = (sensor_data.sum(dim=-1) == 0).to(sensor_proj.device)  # Shape: [batch_size, seq_len]
+
 
         
-        sensor_encoded = self.sensor_transformer(sensor_proj, mask=mask1)  # Use correct mask format
+        sensor_encoded = self.sensor_transformer(sensor_proj, src_key_padding_mask=mask1)  # Use correct mask format
 
 
         # Aggregate information (mean pooling across sequence)
@@ -151,8 +151,8 @@ def reset_model_weights(model):
 def train(model, train_loader, val_loader, num_epochs = 5):
     #reset_model_weights(model)  # Reset weights before training
 
-    criterion = nn.SmoothL1Loss()
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.0007)
     best_val_loss = float("inf")
     for epoch in range(num_epochs):
         epoch_loss = 0.0
@@ -216,7 +216,7 @@ def train(model, train_loader, val_loader, num_epochs = 5):
         #  Save the model if validation loss improves
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            torch.save(model.state_dict(), "best_model_TS.pth")  # Save model weights
+            torch.save(model.state_dict(), "best_model_All_Data.pth")  # Save model weights
             print(f" Model saved at epoch {epoch+1} with validation loss: {avg_val_loss:.4f}")
 
 
