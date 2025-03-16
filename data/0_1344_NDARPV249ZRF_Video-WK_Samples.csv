@@ -1,0 +1,3 @@
+Age,processed_Sex_0,Video,processed_delta_L_EPOS_X,processed_delta_L_EPOS_Y,processed_delta_L_EPOS_Z,processed_delta_R_EPOS_X,processed_delta_R_EPOS_Y,processed_delta_R_EPOS_Z,processed_L_Dia_X_,processed_L_Dia_Y_,processed_R_Dia_X_,processed_R_Dia_Y_,processed_L_POR_X_,processed_L_POR_Y_,processed_R_POR_X_,processed_R_POR_Y_,processed_ADHD_Severity
+0.08737622,False,3,0.0,0.0,0.0,0.0,0.0,0.0,-0.7071067811865476,-0.7071067811865476,0.0,0.0,-0.7071067811865475,-0.7071067811865475,0.0,0.0,0.88976
+0.08737622,False,3,1.0,1.0,1.0,0.0,0.0,0.0,0.7071067811865476,0.7071067811865476,0.0,0.0,0.7071067811865475,0.7071067811865475,0.0,0.0,0.88976

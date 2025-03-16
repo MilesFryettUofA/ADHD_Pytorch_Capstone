@@ -58,18 +58,19 @@ class MultiStreamFusionModel(nn.Module):
         metadata_avg = metadata.mean(dim=1)  # [batch_size, metadata_input_dim]
         metadata_features = self.metadata_branch(metadata_avg)  # [batch_size, hidden_size]
         
-
+ 
         # Sensor Transformer Processing
         sensor_proj = self.sensor_linear(sensor_data)  
         sensor_proj = sensor_proj + self.positional_encoding[:, :sensor_proj.shape[1], :]  # Add positional encoding
         sensor_proj = sensor_proj.transpose(0, 1)  # [seq_len, batch_size, hidden_size]
         
         seq_len = sensor_proj.shape[0]  # Get current sequence length
-        mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).to(sensor_proj.device)
-        mask = mask.masked_fill(mask == 1, float('-inf'))  # Convert to -inf for Transformer masking
+        mask1 = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).to(sensor_proj.device)
+        mask1 = mask1.masked_fill(mask1 == 1, float('-inf'))  # Convert to -inf for Transformer masking
 
         
-        sensor_encoded = self.sensor_transformer(sensor_proj, mask)
+        sensor_encoded = self.sensor_transformer(sensor_proj, mask=mask1)  # Use correct mask format
+
 
         # Aggregate information (mean pooling across sequence)
         sensor_encoded = sensor_encoded.mean(dim=0)
@@ -81,7 +82,7 @@ class MultiStreamFusionModel(nn.Module):
 
 # 1️⃣ Define a custom dataset
 class EyeTrackingDataset(Dataset):
-    def __init__(self, csv_folder, max_seq_len=25000):
+    def __init__(self, csv_folder, max_seq_len=2500):
         self.csv_folder = csv_folder
         self.csv_files = [f for f in os.listdir(csv_folder) if f.endswith(".csv")]
         self.max_seq_len = max_seq_len  # Set a fixed length for padding
@@ -100,6 +101,13 @@ class EyeTrackingDataset(Dataset):
         metadata = torch.tensor(data.iloc[:, :3].values, dtype=torch.float32).to(device)  # First 3 columns as metadata
         sensor_data = torch.tensor(data.iloc[:, 3:-1].values, dtype=torch.float32).to(device) # Middle columns as sensor data
         target = torch.tensor(data.iloc[:, -1].values[0], dtype=torch.float32).to(device)  # Last column as the label
+        
+
+
+        downsample_factor = 10  # Keep every 10th row
+        sensor_data = sensor_data[::downsample_factor, :]  # Downsample along the sequence dimension
+        metadata = metadata[::downsample_factor, :]  # Downsample along the sequence dimension
+
         def pad_tensor(tensor, max_len):
             pad_size = max_len - tensor.shape[0]
             if pad_size > 0:
@@ -168,8 +176,8 @@ def train(model, train_loader, val_loader, num_epochs = 5):
                 target_avg = target.view(-1, 1)  # Ensure [batch_size, 1] shape  # Shape: [1, 1]
 
 
-            metadata = metadata[:, ::downsample_factor, :]
-            sensor_data = sensor_data[:, ::downsample_factor, :]
+            #metadata = metadata[:, ::downsample_factor, :]
+            #sensor_data = sensor_data[:, ::downsample_factor, :]
             torch.cuda.empty_cache()  # Free unused memory
 
             output = model(metadata, sensor_data)
@@ -227,7 +235,7 @@ if __name__ == "__main__":
     sample_metadata, sample_sensor, sample_target = dataset[0]
     metadata_features = sample_metadata.shape[1]
     sensor_features = sample_sensor.shape[1]
-    model = MultiStreamFusionModel(metadata_features, sensor_features, hidden_size=16, output_size=1).to(device)
+    model = MultiStreamFusionModel(metadata_features, sensor_features, hidden_size=64, output_size=1).to(device)
     #model.load_state_dict(torch.load("best_model.pth", map_location=device))
 
 
