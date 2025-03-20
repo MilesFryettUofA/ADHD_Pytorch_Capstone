@@ -23,32 +23,25 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class MultiStreamFusionModel(nn.Module):
     def __init__(self, metadata_input_dim, sensor_input_dim, hidden_size, output_size, nhead=4, num_transformer_layers=2):
         super(MultiStreamFusionModel, self).__init__()
-        
         # Metadata branch: simple MLP
         self.metadata_branch = nn.Sequential(
             nn.Linear(metadata_input_dim, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, hidden_size)
         )
-        
         # Sensor branch: Time-Series Transformer
         self.sensor_linear = nn.Linear(sensor_input_dim, hidden_size)  # Project sensor data to hidden dim
-
         # Positional Encoding (Learnable for Time-Series)
         self.positional_encoding = nn.Parameter(torch.randn(1, 2500, hidden_size))  # Max sequence length assumed 25000
-
         # Transformer Encoder Layers
         encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=nhead, dropout=0.2)
         self.sensor_transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_transformer_layers)
-
-        
         # Fusion layers: combine outputs from both branches
         self.fusion = nn.Sequential(
             nn.Linear(hidden_size * 2, hidden_size),
             nn.LeakyReLU(negative_slope=0.01), 
             nn.Linear(hidden_size, output_size),
             nn.Identity()  # Ensure output is between 0 and 1
-
         )
     
     def forward(self, metadata, sensor_data):
@@ -216,7 +209,7 @@ def train(model, train_loader, val_loader, num_epochs = 5):
         #  Save the model if validation loss improves
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            torch.save(model.state_dict(), "best_model_All_Data.pth")  # Save model weights
+            torch.save(model.state_dict(), f"best_model_All_Data{best_val_loss:.4f}.pth")  # Save model weights
             print(f" Model saved at epoch {epoch+1} with validation loss: {avg_val_loss:.4f}")
 
 
@@ -236,7 +229,7 @@ if __name__ == "__main__":
     metadata_features = sample_metadata.shape[1]
     sensor_features = sample_sensor.shape[1]
     model = MultiStreamFusionModel(metadata_features, sensor_features, hidden_size=64, output_size=1).to(device)
-    #model.load_state_dict(torch.load("best_model.pth", map_location=device))
+    #model.load_state_dict(torch.load("best_model_All_Data.pth", map_location=device))
 
 
     train(model, train_loader, val_loader, num_epochs = 500)
