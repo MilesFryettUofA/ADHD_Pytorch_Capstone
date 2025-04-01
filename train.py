@@ -117,7 +117,7 @@ class EyeTrackingDataset(Dataset):
         return len(self.csv_files)
 
 
-def get_data_loader(train_size_percent =0.75, val_size_percent =0.25, batch_size = 1, csv_folder = './data'):
+def get_data_loader(train_size_percent =0.8, val_size_percent =0.2, batch_size = 2, csv_folder = './data'):
     dataset = EyeTrackingDataset(csv_folder)
 
     # Define split sizes
@@ -145,7 +145,7 @@ def train(model, train_loader, val_loader, num_epochs = 5):
     #reset_model_weights(model)  # Reset weights before training
 
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.0007)
+    optimizer = optim.Adam(model.parameters(), lr=0.0005)
     best_val_loss = float("inf")
     for epoch in range(num_epochs):
         epoch_loss = 0.0
@@ -207,10 +207,15 @@ def train(model, train_loader, val_loader, num_epochs = 5):
 
         avg_val_loss = total_val_loss / len(val_loader)  # Compute average validation loss
         #  Save the model if validation loss improves
+        print(f" validation loss: {avg_val_loss:.4f}")
+
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
-            torch.save(model.state_dict(), f"best_model_All_Data{best_val_loss:.4f}.pth")  # Save model weights
+            torch.save(model.state_dict(), f"best_model_new_2_{best_val_loss:.4f}.pth")  # Save model weights
             print(f" Model saved at epoch {epoch+1} with validation loss: {avg_val_loss:.4f}")
+
+        torch.save(model.state_dict(), f"best_model_new_working_2.pth")  # Save model weights
+
 
 
 
@@ -228,8 +233,8 @@ if __name__ == "__main__":
     sample_metadata, sample_sensor, sample_target = dataset[0]
     metadata_features = sample_metadata.shape[1]
     sensor_features = sample_sensor.shape[1]
-    model = MultiStreamFusionModel(metadata_features, sensor_features, hidden_size=64, output_size=1).to(device)
-    #model.load_state_dict(torch.load("best_model_All_Data.pth", map_location=device))
+    model = MultiStreamFusionModel(metadata_features, sensor_features, hidden_size=128, output_size=1).to(device)
+    #model.load_state_dict(torch.load("best_model_new_working_2.pth", map_location=device))
 
 
     train(model, train_loader, val_loader, num_epochs = 500)

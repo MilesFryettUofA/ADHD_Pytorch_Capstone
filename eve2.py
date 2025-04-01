@@ -1,8 +1,10 @@
 import torch
 import pandas as pd
 import os
+import matplotlib.pyplot as plt
+
 from torch.utils.data import DataLoader
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_curve
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_curve, confusion_matrix, ConfusionMatrixDisplay
 import numpy as np
 
 # Load your dataset class and model
@@ -39,8 +41,8 @@ def evaluate_model(model, test_loader, threshold=0.5, find_best_threshold=False)
 
     # ✅ Find the best threshold using ROC curve if needed
     if find_best_threshold:
-        y_true = (y_true >= 0.5).astype(int)  # Threshold at 0.5
-        y_scores = (y_scores >= 0.7).astype(int)  # Threshold at 0.5
+        y_true = (y_true >= 0.75).astype(int)  # Threshold at 0.5
+        y_scores = (y_scores >= 0.75).astype(int)  # Threshold at 0.5
 
         fpr, tpr, thresholds = roc_curve(y_true, y_scores)
         optimal_idx = (tpr - fpr).argmax()
@@ -48,13 +50,20 @@ def evaluate_model(model, test_loader, threshold=0.5, find_best_threshold=False)
         print(f"Optimal Threshold Found: {threshold}")
 
     # Convert scores to binary predictions
-    y_pred = (y_scores >= threshold).astype(int)
+    #y_pred = (y_scores >= threshold).astype(int)
+    y_pred = y_scores
+
 
     # ✅ Compute Metrics
     accuracy = accuracy_score(y_true, y_pred)
     precision = precision_score(y_true, y_pred, zero_division=0)
     recall = recall_score(y_true, y_pred, zero_division=0)
     f1 = f1_score(y_true, y_pred, zero_division=0)
+    confusion_matrix2 = confusion_matrix(y_true, y_pred)
+    cm_display = ConfusionMatrixDisplay(confusion_matrix = confusion_matrix2, display_labels = [0, 1])
+    cm_display.plot()
+    plt.show()
+
 
     print("\n🔹 Model Evaluation Results 🔹")
     print(f"Threshold: {threshold:.2f}")
@@ -70,18 +79,20 @@ def evaluate_model(model, test_loader, threshold=0.5, find_best_threshold=False)
 
     return accuracy, precision, recall, f1, threshold
 
+
+
 # ✅ Load trained model
 def load_trained_model(model_path, dataset):
     metadata_features = dataset[0][0].shape[1]
     sensor_features = dataset[0][1].shape[1]
     
-    model = MultiStreamFusionModel(metadata_features, sensor_features, hidden_size=64, output_size=1).to(device)
+    model = MultiStreamFusionModel(metadata_features, sensor_features, hidden_size=128, output_size=1).to(device)
     model.load_state_dict(torch.load(model_path, map_location=device))
     
     return model
 
 # ✅ Run evaluation
 if __name__ == "__main__":
-    test_loader, dataset = load_test_data(csv_folder="./data", batch_size=1)
-    model = load_trained_model(model_path="best_model_All_Data{best_val_loss}.pth", dataset=dataset)
+    test_loader, dataset = load_test_data(csv_folder="./test", batch_size=1)
+    model = load_trained_model(model_path="best_model_new_2_0.0342.pth", dataset=dataset)
     evaluate_model(model, test_loader, find_best_threshold=True)
